@@ -1,6 +1,6 @@
 import os
 import re
-from typing import re
+# from typing import re
 
 import settings
 import logging
@@ -111,60 +111,88 @@ async def message_processing(msg, title_channel, channels_count, channels_total,
     name_file = title_channel + '--' + str_date_msg + '--' + str_time_msg + '--'  # yesterday_date_str
     if not os.path.isdir(path_to_msg):
         os.makedirs(path_to_msg)
+
+
+
     hyperlink_processing(msg=msg, hyperlink_template='https://telegra.ph', name_file=name_file,path_to_msg=path_to_msg,)
+
     text_message_processing(msg=msg, name_file=name_file, path_to_msg=path_to_msg,)
+
+    await media_processing(msg=msg,
+                           name_file=name_file,
+                           path_to_msg=path_to_msg,
+                           title_channel=title_channel,
+                           channels_count=channels_count,
+                           channels_total=channels_total,
+                           m_readed_count=m_readed_count,
+                           m_total=m_total,)
+
+    await msg.mark_read()
+
+
+
+async def media_processing(msg, name_file, path_to_msg, title_channel, channels_count, channels_total, m_readed_count, m_total):
+
     if not None == msg.media:
         path = None
         if getattr(msg.media, 'photo', None):
             filename_photo = 'photo--{}'.format(name_file)
-            path = await msg.download_media(path_to_msg + '/' + filename_photo, progress_callback=progress_callback, thumb=-1)
+            if not os.path.isfile(path_to_msg + '/' + filename_photo):
+                path = await msg.download_media(path_to_msg + '/' + filename_photo, progress_callback=progress_callback, thumb=-1)
         # if only_photo is True, will download only photo, not documents(video, gifs, files)
         if getattr(msg.media, 'document', None) and settings.parser['only_photo'] == False:  # elif
             filename_document = 'document--{}'.format(name_file)
-            path = await msg.download_media(path_to_msg + '/' + filename_document, progress_callback=progress_callback)
+            if not os.path.isfile(path_to_msg + '/' + filename_document):
+                path = await msg.download_media(path_to_msg + '/' + filename_document, progress_callback=progress_callback)
         # Log download event
         if not None == path:
             logging.info(
                 f'[Channels: {channels_count}/{channels_total}] [Progress: {m_readed_count}/{m_total}] '
                 f'[DOWNLOAD] media from {title_channel} to ' + path
             )
-    await msg.mark_read()
+
 
 
 def text_message_processing(msg, name_file, path_to_msg):
-    text_message = msg.message
     filename_text = 'text--{}.txt'.format(name_file)
-    if text_message is not None:
-        with open(path_to_msg + '/' + filename_text, "a", encoding="UTF-8") as fail_text:
-            fail_text.write(text_message)
-        logging.info(f'text file loaded')
+    if not os.path.isfile(path_to_msg + '/' + filename_text):
+        text_message = msg.message
+        if text_message is not None:
+            with open(path_to_msg + '/' + filename_text, "a", encoding="UTF-8") as fail_text:
+                fail_text.write(text_message)
+            logging.info(f'text file loaded')
 
 
 def hyperlink_processing(msg, hyperlink_template, name_file, path_to_msg,):
-    list_msg_linc = msg.entities
-    if list_msg_linc is not None:
-        for item_msg_linc in list_msg_linc:
-            if hasattr(item_msg_linc, 'url'):
-                msg_linc_url = item_msg_linc.url
-                if msg_linc_url is not None:
-                    if hyperlink_template in item_msg_linc.url:
-
-
+    filename_msg_linc = 'linc--{}.html'.format(name_file)
+    if not os.path.isfile(path_to_msg + '/' + filename_msg_linc):
+        list_msg_linc = msg.entities
+        if list_msg_linc is not None:
+            for item_msg_linc in list_msg_linc:
+                if hasattr(item_msg_linc, 'url'):
+                    msg_linc_url = item_msg_linc.url
+                    if msg_linc_url is not None and hyperlink_template in item_msg_linc.url:
                         try:
-                            headers = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
+                            headers = {'Connection': 'keep-alive',
+                                       'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                                       'Accept-Encoding': 'gzip,deflate,sdch',
+                                       'Accept-Language': 'ru-RU,ru;q=0.8,en-US;q=0.6,en;q=0.4',
+                                       'Cache-Control': 'max-age=0',
+                                       'Origin': 'http://site.ru',
+                                       'User-Agent': 'Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/29.0.1547.0 Safari/537.36'}
                             response = requests.get(msg_linc_url, headers=headers)
-                            res
+                            # res
                             time.sleep(0.25)
                             if response.status_code == 200:
                                 html_code = response.text
-                                filename_msg_linc = 'linc--{}.html'.format(name_file)
+
                                 with open(path_to_msg + '/' + filename_msg_linc, "a", encoding="UTF-8") as file_linc:
                                     file_linc.write(html_code)
                                 logging.info(f'html file loaded')
                             else:
                                 logging.info(f'error when receiving page ----', response.status_code, )
                         except requests.exceptions.RequestException:
-                            logging.info(f'SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS ----', response.status_code, )
+                            logging.info(f'---------------------- РАЗРЫВ СОЕДИНЕНИЯ -------------------------', )
 
 
 

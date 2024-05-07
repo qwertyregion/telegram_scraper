@@ -1,7 +1,7 @@
 # Settings file.
 tg_sec = {
-    'api_id': 27543459,
-    'api_hash': 'afe9078f55baf573e2ffb8b0ab965ec1',
+    'api_id': ,
+    'api_hash': '',
 }
 
 parser = {
